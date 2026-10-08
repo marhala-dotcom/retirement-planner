@@ -159,9 +159,9 @@ export function WealthChart(p: Props) {
         )}
       </div>
 
-      <div className={`h-[340px] transition-opacity ${p.busy && p.mode === 'range' ? 'opacity-60' : ''}`}>
+      <div className={`h-[352px] transition-opacity ${p.busy && p.mode === 'range' ? 'opacity-60' : ''}`}>
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={data} margin={{ top: 22, right: 12, bottom: 0, left: 4 }} onClick={handleClick} style={{ cursor: 'pointer' }}>
+          <ComposedChart data={data} margin={{ top: 34, right: 12, bottom: 0, left: 4 }} onClick={handleClick} style={{ cursor: 'pointer' }}>
             <CartesianGrid vertical={false} stroke="var(--grid)" />
             <XAxis
               dataKey="age"
@@ -217,7 +217,7 @@ export function WealthChart(p: Props) {
                   fontSize: 10,
                   fill: 'var(--ink-2)',
                   offset: 4,
-                  dy: -18 + (i % 2) * 11,
+                  dy: -30 + (i % 3) * 11, // three label rows so neighbours don't collide
                 }}
               />
             ))}
