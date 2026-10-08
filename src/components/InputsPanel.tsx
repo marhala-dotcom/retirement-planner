@@ -6,10 +6,13 @@ import { WRAPPER_META } from '../lib/colors'
 import { compact, money } from '../lib/format'
 import { MoneyField, NumberField, PercentField, Section, Segmented, Toggle, InfoTip } from './fields'
 import { SplitDonut } from './SplitDonut'
+import { SheetSync } from './SheetSync'
+import type { ApplyResult } from '../lib/sheetImport'
 
 type Edit = (fn: (d: Plan) => void) => void
+type SheetApply = (r: ApplyResult, names: string[] | null) => void
 
-export function InputsPanel({ plan, edit }: { plan: Plan; edit: Edit }) {
+export function InputsPanel({ plan, edit, onSheetApply }: { plan: Plan; edit: Edit; onSheetApply: SheetApply }) {
   const people = plan.couple ? [0, 1] : [0]
   return (
     <div>
@@ -49,7 +52,7 @@ export function InputsPanel({ plan, edit }: { plan: Plan; edit: Edit }) {
         <PersonSection key={i} plan={plan} edit={edit} i={i} />
       ))}
 
-      <SavingsSection plan={plan} edit={edit} />
+      <SavingsSection plan={plan} edit={edit} onSheetApply={onSheetApply} />
       <SpendingSection plan={plan} edit={edit} />
       <StrategySection plan={plan} edit={edit} />
       <AssumptionsSection plan={plan} edit={edit} />
@@ -184,7 +187,7 @@ function PersonSection({ plan, edit, i }: { plan: Plan; edit: Edit; i: number })
   )
 }
 
-function SavingsSection({ plan, edit }: { plan: Plan; edit: Edit }) {
+function SavingsSection({ plan, edit, onSheetApply }: { plan: Plan; edit: Edit; onSheetApply: SheetApply }) {
   const people = plan.couple ? [0, 1] : [0]
   const total = people.reduce((s, i) => s + WRAPPERS.reduce((a, w) => a + plan.people[i].pots[w], 0), 0)
   const byWrapper = WRAPPERS.map((w) => ({ key: w, value: people.reduce((s, i) => s + plan.people[i].pots[w], 0) }))
@@ -230,6 +233,7 @@ function SavingsSection({ plan, edit }: { plan: Plan; edit: Edit }) {
 
   return (
     <Section title="Savings & investments" icon={<PiggyBank size={16} />} aside={compact(total)}>
+      <SheetSync plan={plan} onApply={onSheetApply} />
       <div className="mb-3 flex items-center gap-4">
         <SplitDonut data={byWrapper} total={total} />
         <ul className="flex-1 space-y-1 text-xs">

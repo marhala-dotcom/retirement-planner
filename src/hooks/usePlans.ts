@@ -87,6 +87,18 @@ export function usePlans() {
     }))
   }, [])
 
+  /** Apply the same change to every scenario (e.g. today's balances from a linked sheet). */
+  const editAll = useCallback((fn: (draft: Plan) => void) => {
+    setState((s) => ({
+      ...s,
+      scenarios: s.scenarios.map((x) => {
+        const draft = structuredClone(x.plan)
+        fn(draft)
+        return { ...x, plan: draft }
+      }),
+    }))
+  }, [])
+
   const select = useCallback((id: string) => setState((s) => ({ ...s, activeId: id })), [])
 
   const duplicate = useCallback((name?: string) => {
@@ -118,5 +130,5 @@ export function usePlans() {
 
   const reset = useCallback(() => edit((d) => Object.assign(d, defaultPlan())), [edit])
 
-  return { scenarios: state.scenarios, active, edit, select, duplicate, addPlan, rename, remove, reset }
+  return { scenarios: state.scenarios, active, edit, editAll, select, duplicate, addPlan, rename, remove, reset }
 }

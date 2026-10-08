@@ -1,5 +1,6 @@
 import { X } from 'lucide-react'
 import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 
 export function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
   useEffect(() => {
@@ -11,7 +12,8 @@ export function Modal({ title, onClose, children, wide }: { title: string; onClo
       document.body.style.overflow = ''
     }
   }, [onClose])
-  return (
+  // Portal to <body> so the dialog escapes any sticky/scrolling parent's stacking context.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-3 sm:p-8" onMouseDown={onClose}>
       <div
         role="dialog"
@@ -28,6 +30,7 @@ export function Modal({ title, onClose, children, wide }: { title: string; onClo
         </div>
         <div className="px-6 py-5">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

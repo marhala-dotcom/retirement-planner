@@ -17,6 +17,7 @@ import { useEngine } from './hooks/useEngine'
 import { normalizePlan, usePlans } from './hooks/usePlans'
 import { buildInsights } from './lib/insights'
 import { milestones } from './lib/milestones'
+import { applyToPlan } from './lib/sheetImport'
 
 const UI_KEY = 'horizon-ui.v1'
 function loadUi() {
@@ -151,7 +152,11 @@ export default function App() {
             <h1 className="text-lg font-semibold tracking-tight">Your plan</h1>
             <p className="text-xs text-muted">Everything in today's money. Results update as you type.</p>
           </div>
-          <InputsPanel plan={plan} edit={store.edit} />
+          <InputsPanel
+            plan={plan}
+            edit={store.edit}
+            onSheetApply={(result, sheetNames) => store.editAll((d) => applyToPlan(d, result, sheetNames))}
+          />
           <div className="flex items-start gap-2 px-5 py-4 text-xs text-muted">
             <Lock size={13} className="mt-0.5 shrink-0" />
             Your numbers are saved only in this browser. Nothing is uploaded.
