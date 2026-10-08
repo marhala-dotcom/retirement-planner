@@ -95,6 +95,9 @@ export interface Plan {
   assumptions: Assumptions
   events: LifeEvent[]
   simulations: number
+  /** Show/use the general investment account and Lifetime ISA. When off, money that
+   *  overflows ISA allowances goes to cash instead of a GIA. */
+  extraPots: boolean
 }
 
 export interface IncomeBreakdown {

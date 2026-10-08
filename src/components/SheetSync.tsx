@@ -1,11 +1,13 @@
 import { AlertTriangle, FileSpreadsheet, Link2, Loader2, RefreshCw, ShieldCheck, Unlink, Upload } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { WRAPPERS, type Plan } from '../engine/types'
+import type { Plan } from '../engine/types'
+import { visibleWrappers } from '../lib/pots'
 import { WRAPPER_META } from '../lib/colors'
 import { compact, money } from '../lib/format'
 import { GOOGLE_CLIENT_ID, fetchGrid, fetchMeta, getAccessToken, loadGoogle, signOutGoogle, type SheetMeta } from '../lib/google'
 import {
   TARGET_LABELS,
+  availableTargets,
   buildMapping,
   detectNames,
   gridToRows,
@@ -89,7 +91,8 @@ export function SheetSync({ plan, onApply }: { plan: Plan; onApply: (r: ApplyRes
           setOpen(true)
           return
         }
-        const result = summarise(rows, link.mapping, plan.couple)
+        const extra = visibleWrappers(plan).includes('gia')
+        const result = summarise(rows, buildMapping(rows, link.names, plan.couple, link.mapping, extra), plan.couple)
         onApply(result, link.renamePeople ? link.names : null)
         update({ ...link, lastSync: new Date().toISOString() })
         setMsg({ tone: 'ok', text: `Updated: ${money(result.included)} across your pots.` })
@@ -200,6 +203,8 @@ function SheetModal({
   const [csvName, setCsvName] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
   const configured = Boolean(GOOGLE_CLIENT_ID)
+  const pots = visibleWrappers(plan)
+  const extraPots = pots.includes('gia')
 
   useEffect(() => {
     if (configured) loadGoogle().catch((e: Error) => setErr(e.message))
@@ -212,7 +217,7 @@ function SheetModal({
     const useNames = detected.length ? detected : names
     setRows(r)
     setNames(useNames)
-    setMapping(buildMapping(r, useNames, plan.couple, link?.mapping))
+    setMapping(buildMapping(r, useNames, plan.couple, link?.mapping, extraPots))
     setStep('review')
   }
 
@@ -389,7 +394,7 @@ function SheetModal({
                           className="w-full rounded-md border border-line bg-surface px-2 py-1"
                           aria-label={`Where ${r.label} goes`}
                         >
-                          {(Object.keys(TARGET_LABELS) as Target[]).map((t) => (
+                          {availableTargets(extraPots).map((t) => (
                             <option key={t} value={t}>
                               {TARGET_LABELS[t]}
                             </option>
@@ -436,7 +441,7 @@ function SheetModal({
             {people.map((i) => (
               <div key={i} className="rounded-xl bg-surface-2 p-3">
                 <div className="mb-1.5 font-semibold">{personName(i)}</div>
-                {WRAPPERS.map((w) => (
+                {pots.map((w) => (
                   <div key={w} className="flex justify-between py-0.5 text-xs">
                     <span className="flex items-center gap-1.5 text-ink-2">
                       <span className="h-2 w-2 rounded-sm" style={{ background: WRAPPER_META[w].color }} />

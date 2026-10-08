@@ -216,3 +216,16 @@ describe('robustness across options', () => {
     expect(s).toBeGreaterThan(r)
   })
 })
+
+describe('extra pots switch', () => {
+  it('never creates a GIA when GIA/LISA are switched off (overflow goes to cash)', () => {
+    const plan = defaultPlan()
+    plan.events = [{ id: 'w', label: 'Inheritance', age: 45, amount: 500_000, every: 0, untilAge: 45 }]
+    plan.people[0].contrib.isa = 3_000 // £36k a year: over the £20k allowance
+    const off = runDeterministic(plan)
+    expect(Math.max(...off.rows!.map((r) => r.balances.gia))).toBe(0)
+    plan.extraPots = true
+    const on = runDeterministic(plan)
+    expect(Math.max(...on.rows!.map((r) => r.balances.gia))).toBeGreaterThan(0)
+  })
+})

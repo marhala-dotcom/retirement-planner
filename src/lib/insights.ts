@@ -5,6 +5,7 @@ import { PENSION, PLSA, STATE_PENSION } from '../engine/rules'
 import type { SweepPoint } from '../engine/worker'
 import type { YearRow } from '../engine/types'
 import { compact, money, pct } from './format'
+import { showsGia } from './pots'
 
 export type Tone = 'bad' | 'warn' | 'info' | 'good'
 export interface Insight {
@@ -63,7 +64,7 @@ export function buildInsights({ P, rows, depletedAt, potAtRet, mc, solve, sweep 
       title: ok
         ? `Your ISAs and cash cover the ${years}-year bridge to pension access`
         : `Not enough outside pensions to bridge ${years} years until ${P.accessAge[0]}`,
-      body: `Pensions stay locked until ${P.accessAge[0]} (the minimum age rises to 57 in April 2028). You need about ${compact(need)} from ISAs, GIA and cash to get there, and you'd have ${compact(have)}.${
+      body: `Pensions stay locked until ${P.accessAge[0]} (the minimum age rises to 57 in April 2028). You need about ${compact(need)} from ISAs${showsGia(plan) ? ', GIA' : ''} and cash to get there, and you'd have ${compact(have)}.${
         ok ? '' : ' Consider paying more into ISAs instead of pensions in the years before you retire.'
       }`,
     })

@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { defaultPlan } from '../engine/defaults'
 import {
   applyToPlan,
+  availableTargets,
   buildMapping,
+  fitTarget,
   classify,
   detectNames,
   gridToRows,
@@ -122,5 +124,33 @@ describe('sheet import', () => {
       { label: 'Alex Pensions', amount: 120000, category: 'Investments' },
       { label: 'Liabilities', amount: -3000, category: 'Cash' },
     ])
+  })
+})
+
+describe('without GIA and Lifetime ISA', () => {
+  it('re-homes shares to the ISA and leaves crypto out', () => {
+    const rows = gridToRows(GRID)
+    const mapping = buildMapping(rows, ['Alex', 'Sam'], true, { Crypto: { target: 'gia', owner: 'split' } }, false)
+    expect(mapping.Stocks.target).toBe('isa')
+    expect(mapping.Crypto.target).toBe('ignore')
+    expect(fitTarget('lisa', 'Lifetime ISA', false)).toBe('isa')
+    expect(fitTarget('gia', 'Stocks', true)).toBe('gia')
+    expect(availableTargets(false)).not.toContain('gia')
+    expect(availableTargets(false)).not.toContain('lisa')
+  })
+})
+
+describe('owner detection', () => {
+  it('recognises a person who appears on just one personal-pot row', () => {
+    const rows = gridToRows([
+      ['Asset', 'Amount'],
+      ['Alex Pensions', 1],
+      ['Alex Savings', 1],
+      ['Sam Pensions', 1],
+      ['Stocks', 1],
+      ['UAE Savings', 1],
+      ['House Equity', 1],
+    ])
+    expect(detectNames(rows)).toEqual(['Alex', 'Sam'])
   })
 })

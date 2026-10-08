@@ -66,5 +66,6 @@ export function defaultPlan(): Plan {
     },
     events: [],
     simulations: 2000,
+    extraPots: false,
   }
 }

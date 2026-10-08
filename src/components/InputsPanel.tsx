@@ -8,6 +8,7 @@ import { MoneyField, NumberField, PercentField, Section, Segmented, Toggle, Info
 import { SplitDonut } from './SplitDonut'
 import { SheetSync } from './SheetSync'
 import type { ApplyResult } from '../lib/sheetImport'
+import { showsGia, visibleWrappers } from '../lib/pots'
 
 type Edit = (fn: (d: Plan) => void) => void
 type SheetApply = (r: ApplyResult, names: string[] | null) => void
@@ -107,7 +108,7 @@ function PersonSection({ plan, edit, i }: { plan: Plan; edit: Edit; i: number })
           { value: access, label: `pension ${access}` },
           { value: Math.round(p.statePension.ageOverride ?? spaAuto), label: `State ${Math.round(p.statePension.ageOverride ?? spaAuto)}` },
         ]}
-        help={`Private pensions can be accessed from ${access}${access === 57 ? ' (the minimum age rises from 55 to 57 on 6 April 2028)' : ''}. Retiring earlier means bridging the gap from ISAs, cash or a GIA.`}
+        help={`Private pensions can be accessed from ${access}${access === 57 ? ' (the minimum age rises from 55 to 57 on 6 April 2028)' : ''}. Retiring earlier means bridging the gap from ISAs and cash.`}
       />
       <NumberField
         label="State Pension (£/week)"
@@ -192,6 +193,9 @@ function SavingsSection({ plan, edit, onSheetApply }: { plan: Plan; edit: Edit; 
   const total = people.reduce((s, i) => s + WRAPPERS.reduce((a, w) => a + plan.people[i].pots[w], 0), 0)
   const byWrapper = WRAPPERS.map((w) => ({ key: w, value: people.reduce((s, i) => s + plan.people[i].pots[w], 0) }))
   const contribTotal = people.reduce((s, i) => s + WRAPPERS.reduce((a, w) => a + plan.people[i].contrib[w], 0), 0)
+  const shown = visibleWrappers(plan)
+  const extrasEmpty = !shown.includes('gia') && !shown.includes('lisa')
+  const extrasUnused = people.every((i) => (['gia', 'lisa'] as const).every((w) => !plan.people[i].pots[w] && !plan.people[i].contrib[w]))
 
   const grid = (field: 'pots' | 'contrib') => (
     <div className="overflow-hidden rounded-xl border border-line">
@@ -207,7 +211,7 @@ function SavingsSection({ plan, edit, onSheetApply }: { plan: Plan; edit: Edit; 
           </tr>
         </thead>
         <tbody>
-          {WRAPPERS.map((w) => (
+          {shown.map((w) => (
             <tr key={w} className="border-t border-line">
               <td className="px-3 py-1.5">
                 <span className="flex items-center gap-2">
@@ -259,6 +263,21 @@ function SavingsSection({ plan, edit, onSheetApply }: { plan: Plan; edit: Edit; 
         <span className="ml-auto text-xs font-normal text-muted">{money(contribTotal)}/mo</span>
       </div>
       {grid('contrib')}
+      {extrasEmpty ? (
+        <button
+          onClick={() => edit((d) => void (d.extraPots = true))}
+          className="mt-2 text-xs font-medium text-accent-ink hover:underline"
+        >
+          + Also have a general investment account or Lifetime ISA?
+        </button>
+      ) : (
+        plan.extraPots &&
+        extrasUnused && (
+          <button onClick={() => edit((d) => void (d.extraPots = false))} className="mt-2 text-xs text-muted hover:text-ink hover:underline">
+            Hide GIA & Lifetime ISA
+          </button>
+        )
+      )}
       {plan.people.slice(0, people.length).some((p) => p.pots.gia > 0) && (
         <PercentField
           label="GIA: amount originally invested"
@@ -434,7 +453,7 @@ function StrategySection({ plan, edit }: { plan: Plan; edit: Edit }) {
       )}
       <Segmented
         label="Which pots to draw first"
-        help="Tax-smart: cash and GIA first, then pension up to the basic-rate limit, then ISAs, with higher-rate pension last. Preserve pensions: spend ISAs before pensions. Pensions first: run pensions down early (relevant now unused pensions face inheritance tax from April 2027)."
+        help="Tax-smart: cash first, then pension up to the basic-rate limit, then ISAs, with higher-rate pension last. ISAs first: spend ISAs before pensions. Pensions first: run pensions down early (relevant now unused pensions face inheritance tax from April 2027)."
         size="sm"
         value={st.order}
         onChange={(v) => edit((d) => void (d.strategy.order = v))}
@@ -446,7 +465,7 @@ function StrategySection({ plan, edit }: { plan: Plan; edit: Edit }) {
       />
       <Segmented
         label="Pension tax-free cash"
-        help="UFPLS: every withdrawal is 25% tax-free and 75% taxable. Up front: take 25% as a lump sum when you first draw (invested in your ISA/GIA), then the rest is fully taxable. Both are capped by the £268,275 Lump Sum Allowance."
+        help="UFPLS: every withdrawal is 25% tax-free and 75% taxable. Up front: take 25% as a lump sum when you first draw (moved into your ISA), then the rest is fully taxable. Both are capped by the £268,275 Lump Sum Allowance."
         size="sm"
         value={st.tfc}
         onChange={(v) => edit((d) => void (d.strategy.tfc = v))}
@@ -461,12 +480,14 @@ function StrategySection({ plan, edit }: { plan: Plan; edit: Edit }) {
         checked={st.usePersonalAllowance}
         onChange={(v) => edit((d) => void (d.strategy.usePersonalAllowance = v))}
       />
+      {showsGia(plan) && (
       <Toggle
         label="Bed & ISA each year"
         help="Move money from the taxable GIA into unused ISA allowances each year, only realising gains within the £3,000 CGT exemption."
         checked={st.bedAndIsa}
         onChange={(v) => edit((d) => void (d.strategy.bedAndIsa = v))}
       />
+      )}
     </Section>
   )
 }
@@ -500,7 +521,7 @@ function AssumptionsSection({ plan, edit }: { plan: Plan; edit: Edit }) {
       />
       <PercentField
         label="Shares (equities) while saving"
-        help="The rest is in bonds. Applies to pension, ISA, LISA and GIA. Cash is held separately."
+        help="The rest is in bonds. Applies to pensions and ISAs. Cash is held separately."
         value={a.equityPre}
         onChange={(v) => edit((d) => void (d.assumptions.equityPre = v))}
         min={0}

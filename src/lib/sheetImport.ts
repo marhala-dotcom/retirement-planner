@@ -118,15 +118,17 @@ const NOT_NAMES = new Set([
   'isa', 'gia', 'lisa', 'liabilities', 'actual', 'the', 'our', 'my', 'uae', 'uk', 'us', 'eu', 'other', 'emergency',
 ])
 
-/** People's names that prefix several rows ("Alex Pensions", "Alex Savings"). */
+/** People's names that prefix rows: "Alex Pensions", "Alex Savings", "Sam's ISA".
+ *  A name counts if it prefixes two rows, or one row that is clearly a personal pot. */
 export function detectNames(rows: SheetRow[]): string[] {
-  const counts = new Map<string, number>()
+  const score = new Map<string, number>()
   for (const r of rows) {
-    const first = r.label.split(/[\s'’-]+/)[0]
+    const [first, ...rest] = r.label.split(/[\s'’-]+/).filter(Boolean)
     if (!first || !/^[A-Z][a-z]+$/.test(first) || NOT_NAMES.has(first.toLowerCase())) continue
-    counts.set(first, (counts.get(first) ?? 0) + 1)
+    const personalPot = /^(s\s+)?(pensions?|savings|isas?|sipp|cash|lisa|workplace|investments?|accounts?)\b/i.test(rest.join(' '))
+    score.set(first, (score.get(first) ?? 0) + (personalPot ? 2 : 1))
   }
-  return [...counts.entries()].filter(([, n]) => n >= 2).map(([name]) => name).slice(0, 2)
+  return [...score.entries()].filter(([, n]) => n >= 2).map(([name]) => name).slice(0, 2)
 }
 
 export function guessOwner(label: string, names: string[], couple: boolean): Owner {
@@ -135,11 +137,25 @@ export function guessOwner(label: string, names: string[], couple: boolean): Own
   return couple ? 'split' : 0
 }
 
+/** Pots a row can go into. Without the extra pots there is no GIA or Lifetime ISA. */
+export function availableTargets(extraPots: boolean): Target[] {
+  return extraPots ? ['pension', 'isa', 'gia', 'cash', 'lisa', 'debt', 'ignore'] : ['pension', 'isa', 'cash', 'debt', 'ignore']
+}
+
+/** Re-home a GIA/LISA choice when those pots are switched off: shares → ISA, crypto → left out. */
+export function fitTarget(target: Target, label: string, extraPots: boolean): Target {
+  if (extraPots) return target
+  if (target === 'lisa') return 'isa'
+  if (target === 'gia') return /crypto|bitcoin|\bbtc\b|\beth\b/i.test(label) ? 'ignore' : 'isa'
+  return target
+}
+
 /** Default mapping for each row, keeping any choices the user already made. */
-export function buildMapping(rows: SheetRow[], names: string[], couple: boolean, saved: Record<string, Mapping> = {}) {
+export function buildMapping(rows: SheetRow[], names: string[], couple: boolean, saved: Record<string, Mapping> = {}, extraPots = true) {
   const out: Record<string, Mapping> = {}
   for (const r of rows) {
-    out[r.label] = saved[r.label] ?? { target: classify(r.label, r.category), owner: guessOwner(r.label, names, couple) }
+    const m = saved[r.label] ?? { target: classify(r.label, r.category), owner: guessOwner(r.label, names, couple) }
+    out[r.label] = { ...m, target: fitTarget(m.target, r.label, extraPots) }
   }
   return out
 }

@@ -135,7 +135,8 @@ export function simulate(P: Prepared, eqR: ArrayLike<number>, bdR: ArrayLike<num
     s.wd.gia += g
   }
 
-  /** Put money into a person's ISA (within allowance) and the rest into their GIA. */
+  /** Put money into a person's ISA (within allowance) and the rest into their GIA
+   *  (or cash, if the plan doesn't use a GIA). */
   const deposit = (s: PState, t: number, amt: number) => {
     if (amt <= 0) return
     const room = Math.max(0, P.isaAllowance[t] - s.isaUsed)
@@ -143,7 +144,7 @@ export function simulate(P: Prepared, eqR: ArrayLike<number>, bdR: ArrayLike<num
     s.bal.isa += toIsa
     s.isaUsed += toIsa
     const rest = amt - toIsa
-    if (A.equityPost <= 0) s.bal.cash += rest
+    if (A.equityPost <= 0 || !plan.extraPots) s.bal.cash += rest
     else {
       s.bal.gia += rest
       s.basis += rest
@@ -254,8 +255,13 @@ export function simulate(P: Prepared, eqR: ArrayLike<number>, bdR: ArrayLike<num
       const toIsa = Math.min(room, isaIn)
       s.bal.isa += toIsa
       s.isaUsed += toIsa
-      s.bal.gia += isaIn - toIsa + c.gia[t]
-      s.basis += isaIn - toIsa + c.gia[t]
+      const overflow = isaIn - toIsa
+      if (plan.extraPots) {
+        s.bal.gia += overflow
+        s.basis += overflow
+      } else s.bal.cash += overflow
+      s.bal.gia += c.gia[t]
+      s.basis += c.gia[t]
       s.bal.cash += c.cash[t]
       contributions += c.pension[t] + c.isa[t] + c.gia[t] + c.cash[t] + c.lisa[t]
     }

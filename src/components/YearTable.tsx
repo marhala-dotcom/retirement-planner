@@ -24,7 +24,10 @@ const COLS: { key: string; label: string; get: (r: YearRow) => number }[] = [
 
 export function YearTable({ rows, real, couple, names }: { rows: YearRow[]; real: boolean; couple: boolean; names: string[] }) {
   const [open, setOpen] = useState(false)
-  const cols = COLS.filter((c) => rows.some((r) => Math.abs(c.get(r)) > 0.5) || c.key === 'total')
+  const hasLisa = rows.some((r) => r.balances.lisa > 0.5 || r.income.lisa > 0.5)
+  const cols = COLS.filter((c) => rows.some((r) => Math.abs(c.get(r)) > 0.5) || c.key === 'total').map((c) =>
+    c.key === 'wIsa' && !hasLisa ? { ...c, label: 'From ISA' } : c,
+  )
   const val = (r: YearRow, x: number) => (real ? x / r.deflator : x)
 
   const exportCsv = () => {
