@@ -21,36 +21,7 @@ import {
   type Target,
 } from '../lib/sheetImport'
 import { Modal } from './Modal'
-
-/** What we remember about the linked sheet (this browser only). Never the numbers' history. */
-interface SheetLink {
-  url: string
-  id: string
-  tab: string
-  docTitle: string
-  mapping: Record<string, Mapping>
-  names: string[]
-  renamePeople: boolean
-  lastSync: string | null
-  source: 'google' | 'csv'
-}
-
-const KEY = 'horizon-sheet.v1'
-function loadLink(): SheetLink | null {
-  try {
-    return JSON.parse(localStorage.getItem(KEY) ?? 'null')
-  } catch {
-    return null
-  }
-}
-function saveLink(l: SheetLink | null) {
-  try {
-    if (l) localStorage.setItem(KEY, JSON.stringify(l))
-    else localStorage.removeItem(KEY)
-  } catch {
-    /* ignore */
-  }
-}
+import { fetchCellNumber, setSheetLink, useSheetLink, type SheetLink } from '../lib/sheetLink'
 
 function ago(iso: string | null) {
   if (!iso) return 'never'
@@ -61,8 +32,16 @@ function ago(iso: string | null) {
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-export function SheetSync({ plan, onApply }: { plan: Plan; onApply: (r: ApplyResult, names: string[] | null) => void }) {
-  const [link, setLink] = useState<SheetLink | null>(loadLink)
+export function SheetSync({
+  plan,
+  onApply,
+  onMortgage,
+}: {
+  plan: Plan
+  onApply: (r: ApplyResult, names: string[] | null) => void
+  onMortgage: (balance: number) => void
+}) {
+  const link = useSheetLink()
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
@@ -71,10 +50,7 @@ export function SheetSync({ plan, onApply }: { plan: Plan; onApply: (r: ApplyRes
     if (link?.source === 'google' && GOOGLE_CLIENT_ID) loadGoogle().catch(() => {})
   }, [link?.source])
 
-  const update = (l: SheetLink | null) => {
-    setLink(l)
-    saveLink(l)
-  }
+  const update = setSheetLink
 
   /** Re-read the sheet and apply with the saved matching. Opens review if there are new rows. */
   const refresh = () => {
@@ -94,8 +70,14 @@ export function SheetSync({ plan, onApply }: { plan: Plan; onApply: (r: ApplyRes
         const extra = visibleWrappers(plan).includes('gia')
         const result = summarise(rows, buildMapping(rows, link.names, plan.couple, link.mapping, extra), plan.couple)
         onApply(result, link.renamePeople ? link.names : null)
+        let extraMsg = ''
+        if (link.cells?.mortgage) {
+          const bal = Math.abs(await fetchCellNumber(link.id, link.cells.mortgage, t))
+          onMortgage(bal)
+          extraMsg = ` Mortgage: ${money(bal)} left.`
+        }
         update({ ...link, lastSync: new Date().toISOString() })
-        setMsg({ tone: 'ok', text: `Updated: ${money(result.included)} across your pots.` })
+        setMsg({ tone: 'ok', text: `Updated: ${money(result.included)} across your pots.${extraMsg}` })
       })
       .catch((e: Error) => setMsg({ tone: 'err', text: e.message }))
       .finally(() => setBusy(false))
@@ -168,7 +150,7 @@ export function SheetSync({ plan, onApply }: { plan: Plan; onApply: (r: ApplyRes
           onClose={() => setOpen(false)}
           onDone={(l, result) => {
             onApply(result, l.renamePeople ? l.names : null)
-            update({ ...l, lastSync: new Date().toISOString() })
+            update({ ...l, cells: link?.cells, lastSync: new Date().toISOString() })
             setMsg({ tone: 'ok', text: `Imported ${money(result.included)} across your pots.` })
             setOpen(false)
           }}

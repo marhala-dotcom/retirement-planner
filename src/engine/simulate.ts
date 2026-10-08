@@ -492,6 +492,7 @@ export function simulate(P: Prepared, eqR: ArrayLike<number>, bdR: ArrayLike<num
         taxByPerson,
         higherRate: [totalIncome(st[0]) > hrs + 1 && retired(0, t), n > 1 && totalIncome(st[1]) > hrs + 1 && retired(1, t)],
         contributions,
+        mortgage: P.mortgageOut[t],
         surplusSaved: surplus,
         spendingFactor: factor,
         pensionAccess: [accessible(0, t), accessible(1, t)],

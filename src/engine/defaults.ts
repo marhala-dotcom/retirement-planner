@@ -67,5 +67,6 @@ export function defaultPlan(): Plan {
     events: [],
     simulations: 2000,
     extraPots: false,
+    mortgage: { balance: 0, rate: 0.05, monthly: 0, strategy: 'overpay' },
   }
 }

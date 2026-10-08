@@ -18,6 +18,7 @@ const COLS: { key: string; label: string; get: (r: YearRow) => number }[] = [
   { key: 'wGia', label: 'From GIA', get: (r) => r.income.gia },
   { key: 'wCash', label: 'From cash', get: (r) => r.income.cash },
   { key: 'tax', label: 'Tax', get: (r) => r.income.tax },
+  { key: 'mortgage', label: 'Mortgage from savings', get: (r) => r.mortgage },
   { key: 'spent', label: 'Spent', get: (r) => r.spent },
   { key: 'short', label: 'Shortfall', get: (r) => r.shortfall },
 ]

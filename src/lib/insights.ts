@@ -6,6 +6,7 @@ import type { SweepPoint } from '../engine/worker'
 import type { YearRow } from '../engine/types'
 import { compact, money, pct } from './format'
 import { showsGia } from './pots'
+import { balanceAfter, monthsToPayOff, paymentToClear } from '../engine/mortgage'
 
 export type Tone = 'bad' | 'warn' | 'info' | 'good'
 export interface Insight {
@@ -152,6 +153,41 @@ export function buildInsights({ P, rows, depletedAt, potAtRet, mc, solve, sweep 
         body: `${compact(Math.min(a, b))} vs ${compact(Math.max(a, b))}.${
           emptyRow ? ` It runs dry around ${names[smaller] === 'You' ? 'your' : names[smaller] + "'s"} age ${emptyRow.ages[smaller]}, wasting a tax-free personal allowance after that.` : ''
         } Directing more future pension contributions to ${names[smaller]} helps balance taxable income in retirement.`,
+      })
+    }
+  }
+
+  // 7b. Mortgage
+  const mg = plan.mortgage
+  if (mg.balance > 0) {
+    const left = balanceAfter(mg, 12 * P.drawStart)
+    const ends = monthsToPayOff(mg)
+    const endYear = Number.isFinite(ends) ? 2026 + Math.ceil(ends / 12) : null
+    const retireAge = P.age0[0] + P.drawStart
+    const fromSavings = rows.reduce((s, r) => s + r.mortgage / r.deflator, 0)
+    if (left > 1) {
+      const need = paymentToClear(mg, 12 * P.drawStart)
+      const body: Record<string, string> = {
+        overpay: `At ${money(mg.monthly)}/month about ${money(left)} would still be owed at ${retireAge}${endYear ? ` (it runs to ${endYear})` : ''}. This plan assumes you pay ${money(need)}/month from salary (${money(need - mg.monthly)} more) so retirement savings aren't touched.`,
+        atRetirement: `About ${money(left)} is paid off from savings at ${retireAge}. Before pensions unlock that comes from ISAs and cash, so check the bridge. Overpaying ${money(need - mg.monthly)}/month now would avoid it.`,
+        atAccess: `Monthly payments come from savings until pensions unlock, then the rest is cleared — about ${compact(fromSavings)} in today's money in total.`,
+        term: `Payments of about ${money(mg.monthly * 12)} a year come out of savings until ${endYear ?? 'the end of the term'} — about ${compact(fromSavings)} in today's money in total.`,
+      }
+      out.push({
+        id: 'mortgage',
+        tone: mg.strategy === 'atRetirement' ? 'warn' : 'info',
+        title:
+          mg.strategy === 'overpay'
+            ? `Overpay ${money(need - mg.monthly)}/month to be mortgage-free at ${retireAge}`
+            : `Your mortgage costs about ${compact(fromSavings)} from savings`,
+        body: body[mg.strategy],
+      })
+    } else {
+      out.push({
+        id: 'mortgage',
+        tone: 'good',
+        title: `Mortgage-free before you retire${endYear ? ` (${endYear})` : ''}`,
+        body: 'Your current payments clear it while you are still working, so it never touches your retirement savings.',
       })
     }
   }

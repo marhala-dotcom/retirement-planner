@@ -34,11 +34,23 @@ const MARKET_DESC: Record<MarketView, string> = {
   crash: ', if shares fall 35% the year you retire',
 }
 
+/** One reference line per age; labels at the same age are joined. */
+function groupMarks(marks: Milestone[]): Milestone[] {
+  const out: Milestone[] = []
+  for (const m of marks) {
+    const same = out.find((x) => x.x === m.x)
+    if (same) same.label = `${same.label} · ${m.label}`
+    else out.push({ ...m })
+  }
+  return out
+}
+
 const MARK_COLOR: Record<Milestone['kind'], string> = {
   retire: 'var(--ink-2)',
   access: 'var(--s-pension)',
   state: 'var(--s-sp)',
   lisa: 'var(--s-lisa)',
+  mortgage: 'var(--ink-2)',
 }
 
 export function WealthChart(p: Props) {
@@ -192,7 +204,7 @@ export function WealthChart(p: Props) {
                   <Area key="b50" type="monotone" dataKey="band50" stroke="none" fill="var(--band-inner)" fillOpacity={1} isAnimationActive={false} />,
                   <Line key="p50" type="monotone" dataKey="p50" stroke="var(--s-pension)" strokeWidth={2} dot={false} isAnimationActive={false} />,
                 ]}
-            {p.marks.map((m, i) => (
+            {groupMarks(p.marks).map((m, i) => (
               <ReferenceLine
                 key={m.kind + m.x + i}
                 x={m.x}

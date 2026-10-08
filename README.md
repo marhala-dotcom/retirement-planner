@@ -31,6 +31,7 @@ Everything runs in your browser. Your numbers are saved only on your device (loc
 | **Simulation** | Correlated lognormal equity and bond returns with parameter uncertainty, 500–5,000 runs in a Web Worker, and a crash-at-retirement stress test |
 | **Outputs** | KPI tiles, stacked wealth by pot, fan chart, age scrubber gauge, dual-age timeline, income-source bars with tax and shortfall, retirement-age sweep, plain-English insights, and a year-by-year table with CSV export |
 | **Scenarios** | Save variations, compare them side by side, and export or import as JSON |
+| **Mortgage** | Balance (can be linked to a sheet cell), rate and payment. Shows when it's paid off, what's left at retirement and the overpayment needed to clear it first. Choose to clear it from salary, pay it off at retirement, keep paying until pensions unlock, or pay to term. Payments from savings flow through the tax-aware simulation. |
 | **Google Sheets sync** | Connect the sheet where you track balances. Horizon matches each row to a pot and an owner, leaves out property and totals, treats debts as paid off now, and remembers your choices. After that, one click on *Refresh* updates today's balances. CSV import is the no-sign-in alternative. |
 
 See **[docs/RESEARCH.md](docs/RESEARCH.md)** for the research behind the design: competitor review, UK rule sources, capital market assumptions, withdrawal-rate evidence and the roadmap.

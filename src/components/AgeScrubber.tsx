@@ -160,6 +160,12 @@ export function AgeScrubber({ rows, age, setAge, real, marks, names, couple, mar
                     {money(v(row.spent))} <span className="font-normal text-muted">· {money(v(row.spent) / 12)}/mo</span>
                   </span>
                 </div>
+                {row.mortgage > 1 && (
+                  <div className="mt-0.5 flex items-center justify-between text-xs text-ink-2">
+                    <span>of which mortgage</span>
+                    <span className="tnum">{money(v(row.mortgage))}</span>
+                  </div>
+                )}
                 {row.shortfall > 1 && (
                   <div className="mt-1 flex items-center gap-1.5 text-[13px] font-medium text-bad">
                     <AlertTriangle size={14} /> Short by {money(v(row.shortfall))} ({money(v(row.shortfall) / 12)}/mo)

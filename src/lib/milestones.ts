@@ -1,11 +1,29 @@
+import { monthsToPayOff } from '../engine/mortgage'
 import type { Prepared } from '../engine/prepare'
+
+/** Year index when the mortgage is gone under the chosen plan (null if there's none). */
+export function mortgageFreeIdx(P: Prepared): number | null {
+  const m = P.plan.mortgage
+  if (m.balance <= 0) return null
+  const natural = Math.ceil(monthsToPayOff(m) / 12)
+  const firstAccess = Math.min(...[0, 1].slice(0, P.n).map((p) => Math.max(0, P.accessAge[p] - P.age0[p])))
+  switch (m.strategy) {
+    case 'overpay':
+    case 'atRetirement':
+      return Math.min(natural, P.drawStart)
+    case 'atAccess':
+      return Math.min(natural, Math.max(P.drawStart, firstAccess))
+    default:
+      return Number.isFinite(natural) ? natural : null
+  }
+}
 
 export interface Milestone {
   /** On the x-axis (age of person 1). */
   x: number
   label: string
   who: 0 | 1
-  kind: 'retire' | 'access' | 'state' | 'lisa'
+  kind: 'retire' | 'access' | 'state' | 'lisa' | 'mortgage'
 }
 
 export function milestones(P: Prepared): Milestone[] {
@@ -20,6 +38,9 @@ export function milestones(P: Prepared): Milestone[] {
     out.push({ x: P.accessAge[p] + shift, label: `Pension unlocks${tag}`, who, kind: 'access' })
     if (plan.people[p].statePension.weekly > 0) out.push({ x: Math.ceil(P.spa[p]) + shift, label: `State Pension${tag}`, who, kind: 'state' })
   }
+  const free = mortgageFreeIdx(P)
+  if (free != null) out.push({ x: P.age0[0] + free, label: 'Mortgage-free', who: 0, kind: 'mortgage' })
+
   // Merge identical x+kind for couples the same age.
   const merged: Milestone[] = []
   for (const m of out) {

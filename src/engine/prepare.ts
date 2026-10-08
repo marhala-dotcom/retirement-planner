@@ -9,6 +9,7 @@ import {
   statePensionAge,
   thresholdIndex,
 } from './rules'
+import { mortgageOutflows } from './mortgage'
 import { personTax } from './tax'
 import type { Plan, WrapperKey } from './types'
 
@@ -27,7 +28,8 @@ export interface Prepared {
   baseTarget: Float64Array // nominal household net spending target (before guardrails)
   baseTargetReal: Float64Array
   eventsIn: Float64Array
-  eventsOut: Float64Array
+  eventsOut: Float64Array // includes mortgage money paid from savings
+  mortgageOut: Float64Array
   sp: [Float64Array, Float64Array]
   db: [Float64Array, Float64Array]
   work: [Float64Array, Float64Array]
@@ -142,6 +144,11 @@ export function prepare(plan: Plan): Prepared {
     }
   }
 
+  // Mortgage payments/payoff that come out of savings (actual £, not inflated).
+  const firstAccess = Math.min(...[0, 1].slice(0, n).map((p) => Math.max(0, accessAge[p] - age0[p])))
+  const mortgageOut = mortgageOutflows(plan.mortgage, T, drawStart, firstAccess)
+  for (let t = 0; t < T; t++) eventsOut[t] += mortgageOut[t]
+
   const eq = lognormalParams(A.equityReturn - A.fees, A.equityVol)
   const bd = lognormalParams(A.bondReturn - A.fees, A.bondVol)
 
@@ -191,6 +198,7 @@ export function prepare(plan: Plan): Prepared {
     baseTargetReal,
     eventsIn,
     eventsOut,
+    mortgageOut,
     sp,
     db,
     work,

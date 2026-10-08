@@ -1,6 +1,8 @@
 // Core data model. Every money input is in TODAY'S pounds; the engine inflates
 // internally and reports both nominal and real (today's money) figures.
 
+import type { Mortgage } from './mortgage'
+
 export type Region = 'rUK' | 'scotland'
 export type WrapperKey = 'pension' | 'isa' | 'gia' | 'cash' | 'lisa'
 export const WRAPPERS: WrapperKey[] = ['pension', 'isa', 'gia', 'cash', 'lisa']
@@ -98,6 +100,7 @@ export interface Plan {
   /** Show/use the general investment account and Lifetime ISA. When off, money that
    *  overflows ISA allowances goes to cash instead of a GIA. */
   extraPots: boolean
+  mortgage: Mortgage
 }
 
 export interface IncomeBreakdown {
@@ -127,6 +130,7 @@ export interface YearRow {
   taxByPerson: [number, number]
   higherRate: [boolean, boolean] // taxable income above the basic-rate band
   contributions: number
+  mortgage: number // mortgage payments/payoff taken from savings this year
   surplusSaved: number // excess income reinvested
   spendingFactor: number // guardrail multiplier
   pensionAccess: [boolean, boolean]

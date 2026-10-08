@@ -113,8 +113,8 @@ export async function fetchMeta(spreadsheetId: string, accessToken: string): Pro
   return { title: d.properties.title, tabs: d.sheets.map((s) => ({ id: s.properties.sheetId, title: s.properties.title })) }
 }
 
-export async function fetchGrid(spreadsheetId: string, tabTitle: string, accessToken: string): Promise<unknown[][]> {
-  const range = encodeURIComponent(`'${tabTitle.replace(/'/g, "''")}'!A1:Z300`)
+export async function fetchGrid(spreadsheetId: string, tabTitle: string, accessToken: string, cells = 'A1:Z300'): Promise<unknown[][]> {
+  const range = encodeURIComponent(`'${tabTitle.replace(/'/g, "''")}'!${cells}`)
   const d = await api<{ values?: unknown[][] }>(
     `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?valueRenderOption=UNFORMATTED_VALUE`,
     accessToken,
