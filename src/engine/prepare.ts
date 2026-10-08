@@ -9,7 +9,7 @@ import {
   statePensionAge,
   thresholdIndex,
 } from './rules'
-import { mortgageOutflows } from './mortgage'
+import { loanOutflows, mortgageOutflows } from './mortgage'
 import { personTax } from './tax'
 import type { Plan, WrapperKey } from './types'
 
@@ -147,7 +147,11 @@ export function prepare(plan: Plan): Prepared {
   // Mortgage payments/payoff that come out of savings (actual £, not inflated).
   const firstAccess = Math.min(...[0, 1].slice(0, n).map((p) => Math.max(0, accessAge[p] - age0[p])))
   const mortgageOut = mortgageOutflows(plan.mortgage, T, drawStart, firstAccess)
-  for (let t = 0; t < T; t++) eventsOut[t] += mortgageOut[t]
+  const loanOut = loanOutflows(plan.otherLoan, T, drawStart, firstAccess)
+  for (let t = 0; t < T; t++) {
+    mortgageOut[t] += loanOut[t]
+    eventsOut[t] += mortgageOut[t]
+  }
 
   const eq = lognormalParams(A.equityReturn - A.fees, A.equityVol)
   const bd = lognormalParams(A.bondReturn - A.fees, A.bondVol)

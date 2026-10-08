@@ -36,10 +36,12 @@ export function SheetSync({
   plan,
   onApply,
   onMortgage,
+  onLoan,
 }: {
   plan: Plan
   onApply: (r: ApplyResult, names: string[] | null) => void
   onMortgage: (balance: number) => void
+  onLoan: (amount: number) => void
 }) {
   const link = useSheetLink()
   const [open, setOpen] = useState(false)
@@ -75,6 +77,11 @@ export function SheetSync({
           const bal = Math.abs(await fetchCellNumber(link.id, link.cells.mortgage, t))
           onMortgage(bal)
           extraMsg = ` Mortgage: ${money(bal)} left.`
+        }
+        if (link.cells?.otherLoan) {
+          const amt = Math.abs(await fetchCellNumber(link.id, link.cells.otherLoan, t))
+          onLoan(amt)
+          extraMsg += ` Loan: ${money(amt)}.`
         }
         update({ ...link, lastSync: new Date().toISOString() })
         setMsg({ tone: 'ok', text: `Updated: ${money(result.included)} across your pots.${extraMsg}` })

@@ -3,6 +3,21 @@
 
 export type MortgageStrategy = 'overpay' | 'atRetirement' | 'atAccess' | 'term'
 
+/** An interest-free loan (e.g. from family) repaid in one go, or expected to be written off. */
+export interface OtherLoan {
+  label: string
+  amount: number
+  repay: 'none' | 'atRetirement' | 'atAccess'
+}
+
+export function loanOutflows(loan: OtherLoan, T: number, drawStart: number, accessIdx: number): Float64Array {
+  const out = new Float64Array(T)
+  if (loan.amount <= 0 || loan.repay === 'none') return out
+  const t = loan.repay === 'atRetirement' ? drawStart : Math.max(drawStart, accessIdx)
+  if (t < T) out[t] += loan.amount
+  return out
+}
+
 export interface Mortgage {
   balance: number // outstanding today
   rate: number // annual interest / rental rate, e.g. 0.0494

@@ -241,6 +241,7 @@ function SavingsSection({ plan, edit, editAll }: { plan: Plan; edit: Edit; editA
         plan={plan}
         onApply={(result, names) => editAll((d) => applyToPlan(d, result, names))}
         onMortgage={(balance) => editAll((d) => void (d.mortgage.balance = Math.round(balance)))}
+        onLoan={(amount) => editAll((d) => void (d.otherLoan.amount = Math.round(amount)))}
       />
       <div className="mb-3 flex items-center gap-4">
         <SplitDonut data={byWrapper} total={total} />

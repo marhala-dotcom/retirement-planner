@@ -14,7 +14,7 @@ export interface SheetLink {
   lastSync: string | null
   source: 'google' | 'csv'
   /** Single cells to pull on refresh, e.g. { mortgage: "Mortgage!B21" }. */
-  cells?: { mortgage?: string }
+  cells?: { mortgage?: string; otherLoan?: string }
 }
 
 const KEY = 'horizon-sheet.v1'

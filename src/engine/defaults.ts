@@ -68,5 +68,6 @@ export function defaultPlan(): Plan {
     simulations: 2000,
     extraPots: false,
     mortgage: { balance: 0, rate: 0.05, monthly: 0, strategy: 'overpay' },
+    otherLoan: { label: 'Family loan', amount: 0, repay: 'none' },
   }
 }

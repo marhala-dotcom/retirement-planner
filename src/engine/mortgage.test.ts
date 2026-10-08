@@ -54,3 +54,26 @@ describe('mortgage maths', () => {
     expect(withMortgage.rows![base.P.drawStart].mortgage).toBeGreaterThan(50_000)
   })
 })
+
+describe('other (family) loan', () => {
+  it('is repaid once, in actual pounds, only when chosen', async () => {
+    const { loanOutflows } = await import('./mortgage')
+    const loan = { label: 'Family loan', amount: 120_000, repay: 'none' as const }
+    expect(loanOutflows(loan, 40, 15, 17).every((x) => x === 0)).toBe(true)
+    const atRet = loanOutflows({ ...loan, repay: 'atRetirement' }, 40, 15, 17)
+    expect(atRet[15]).toBe(120_000)
+    expect(atRet.reduce((a, b) => a + b, 0)).toBe(120_000)
+    const atAcc = loanOutflows({ ...loan, repay: 'atAccess' }, 40, 15, 17)
+    expect(atAcc[17]).toBe(120_000)
+  })
+
+  it('repaying it lowers what is left; writing it off does not', () => {
+    const plan = defaultPlan()
+    plan.otherLoan = { label: 'Family loan', amount: 120_000, repay: 'none' }
+    const off = runDeterministic(plan)
+    plan.otherLoan.repay = 'atRetirement'
+    const on = runDeterministic(plan)
+    const t = off.P.drawStart + 1
+    expect(on.rows![t].total).toBeLessThan(off.rows![t].total - 100_000)
+  })
+})

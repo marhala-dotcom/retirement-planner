@@ -192,6 +192,28 @@ export function buildInsights({ P, rows, depletedAt, potAtRet, mc, solve, sweep 
     }
   }
 
+  // 7c. Other (family) loan
+  const loan = plan.otherLoan
+  if (loan.amount > 0) {
+    const name = loan.label || 'loan'
+    if (loan.repay === 'none') {
+      out.push({
+        id: 'loan',
+        tone: 'info',
+        title: `The ${money(loan.amount)} ${name.toLowerCase()} is assumed written off`,
+        body: 'It is not taken from your savings. If it does need repaying, choose when under Home & mortgage to see the effect.',
+      })
+    } else {
+      const row = rows.find((r) => r.mortgage >= loan.amount - 1)
+      out.push({
+        id: 'loan',
+        tone: 'warn',
+        title: `Repaying the ${name.toLowerCase()} takes ${money(loan.amount)} from savings${row ? ` at ${row.ages[0]}` : ''}`,
+        body: `That's about ${compact(row ? loan.amount / row.deflator : loan.amount)} in today's money. If it's written off instead, set it to "won't be repaid" — or keep both versions as scenarios and compare them.`,
+      })
+    }
+  }
+
   // 8. Benchmarks
   const bench = P.n === 2 ? PLSA.couple : PLSA.single
   const yr = target * 12

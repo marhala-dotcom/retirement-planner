@@ -162,7 +162,7 @@ export function AgeScrubber({ rows, age, setAge, real, marks, names, couple, mar
                 </div>
                 {row.mortgage > 1 && (
                   <div className="mt-0.5 flex items-center justify-between text-xs text-ink-2">
-                    <span>of which mortgage</span>
+                    <span>of which mortgage & loans</span>
                     <span className="tnum">{money(v(row.mortgage))}</span>
                   </div>
                 )}

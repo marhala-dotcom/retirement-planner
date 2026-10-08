@@ -32,10 +32,6 @@ function monthLabel(monthsFromNow: number) {
 
 export function MortgageSection({ plan, edit, editAll }: { plan: Plan; edit: Edit; editAll: Edit }) {
   const m = plan.mortgage
-  const link = useSheetLink()
-  const [ref, setRef] = useState(link?.cells?.mortgage ?? '')
-  const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState<string | null>(null)
   const set = (fn: (x: Plan['mortgage']) => void) => edit((d) => fn(d.mortgage))
 
   const d = retireIdx(plan)
@@ -53,24 +49,8 @@ export function MortgageSection({ plan, edit, editAll }: { plan: Plan; edit: Edi
   const isYou = !raw || raw.toLowerCase() === 'you'
   const whenAge = (a: number) => (isYou ? `when you're ${a}` : `when ${raw} is ${a}`)
 
-  const pull = () => {
-    if (!link || link.source !== 'google') return
-    const p = parseCellRef(ref)
-    if (!p) return setErr('Use a cell reference like Mortgage!B21')
-    setErr(null)
-    setBusy(true)
-    getAccessToken()
-      .then(async (t) => {
-        const v = Math.abs(await fetchCellNumber(link.id, ref, t))
-        editAll((x) => void (x.mortgage.balance = Math.round(v)))
-        setSheetLink({ ...link, cells: { ...link.cells, mortgage: `${p.tab}!${p.cell}` } })
-      })
-      .catch((e: Error) => setErr(e.message))
-      .finally(() => setBusy(false))
-  }
-
   return (
-    <Section title="Home & mortgage" icon={<Home size={16} />} aside={m.balance > 0 ? `${compact(m.balance)} left` : 'None'} defaultOpen={m.balance > 0}>
+    <Section title="Home & mortgage" icon={<Home size={16} />} aside={m.balance + plan.otherLoan.amount > 0 ? `${compact(m.balance + plan.otherLoan.amount)} owed` : 'None'} defaultOpen={m.balance > 0}>
       <MoneyField
         label="Mortgage left to pay"
         help="What you still owe on your home today (a repayment mortgage or home purchase plan). Leave at £0 if you own your home outright."
@@ -80,43 +60,7 @@ export function MortgageSection({ plan, edit, editAll }: { plan: Plan; edit: Edi
         step={1000}
       />
 
-      {link?.source === 'google' && (
-        <div className="mb-2 rounded-lg bg-surface-2 px-3 py-2 text-xs">
-          {link.cells?.mortgage ? (
-            <div className="flex items-center justify-between gap-2">
-              <span className="flex items-center gap-1.5 text-ink-2">
-                <FileSpreadsheet size={13} className="text-good" />
-                From {link.docTitle} › {link.cells.mortgage}, updated with “Refresh from sheet”
-              </span>
-              <button
-                className="shrink-0 text-muted hover:text-bad"
-                onClick={() => setSheetLink({ ...link, cells: { ...link.cells, mortgage: undefined } })}
-              >
-                Unlink
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <span className="shrink-0 text-ink-2">Pull from sheet cell</span>
-              <input
-                className="num-input min-w-0 flex-1 !text-left"
-                placeholder="Mortgage!B21"
-                value={ref}
-                onChange={(e) => setRef(e.target.value)}
-                aria-label="Sheet cell holding the mortgage balance"
-              />
-              <button
-                onClick={pull}
-                disabled={busy || !ref}
-                className="inline-flex items-center gap-1 rounded-md bg-accent px-2.5 py-1 font-medium text-white disabled:opacity-50"
-              >
-                {busy && <Loader2 size={12} className="animate-spin" />} Link
-              </button>
-            </div>
-          )}
-          {err && <p className="mt-1 text-bad">{err}</p>}
-        </div>
-      )}
+      <SheetCellLink cellKey="mortgage" placeholder="Mortgage!B21" onValue={(v) => editAll((x) => void (x.mortgage.balance = Math.round(v)))} />
 
       {m.balance > 0 && (
         <>
@@ -198,6 +142,124 @@ export function MortgageSection({ plan, edit, editAll }: { plan: Plan; edit: Edi
           </p>
         </>
       )}
+
+      <OtherLoanBlock plan={plan} edit={edit} editAll={editAll} retireAge={retireAge} accessAge={accessAge} />
     </Section>
+  )
+}
+
+/** Pull a single number from the linked Google Sheet (e.g. Mortgage!B21) and keep it in sync on refresh. */
+function SheetCellLink({ cellKey, placeholder, onValue }: { cellKey: 'mortgage' | 'otherLoan'; placeholder: string; onValue: (v: number) => void }) {
+  const link = useSheetLink()
+  const [ref, setRef] = useState(link?.cells?.[cellKey] ?? '')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  if (link?.source !== 'google') return null
+  const linked = link.cells?.[cellKey]
+
+  const pull = () => {
+    const p = parseCellRef(ref)
+    if (!p) return setErr(`Use a cell reference like ${placeholder}`)
+    setErr(null)
+    setBusy(true)
+    getAccessToken()
+      .then(async (t) => {
+        onValue(Math.abs(await fetchCellNumber(link.id, ref, t)))
+        setSheetLink({ ...link, cells: { ...link.cells, [cellKey]: `${p.tab}!${p.cell}` } })
+      })
+      .catch((e: Error) => setErr(e.message))
+      .finally(() => setBusy(false))
+  }
+
+  return (
+    <div className="mb-2 rounded-lg bg-surface-2 px-3 py-2 text-xs">
+      {linked ? (
+        <div className="flex items-center justify-between gap-2">
+          <span className="flex items-center gap-1.5 text-ink-2">
+            <FileSpreadsheet size={13} className="shrink-0 text-good" />
+            From {link.docTitle} › {linked}, updated with “Refresh from sheet”
+          </span>
+          <button className="shrink-0 text-muted hover:text-bad" onClick={() => setSheetLink({ ...link, cells: { ...link.cells, [cellKey]: undefined } })}>
+            Unlink
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          <span className="shrink-0 text-ink-2">Pull from sheet cell</span>
+          <input
+            className="num-input min-w-0 flex-1 !text-left"
+            placeholder={placeholder}
+            value={ref}
+            onChange={(e) => setRef(e.target.value)}
+            aria-label="Sheet cell reference"
+          />
+          <button
+            onClick={pull}
+            disabled={busy || !ref}
+            className="inline-flex items-center gap-1 rounded-md bg-accent px-2.5 py-1 font-medium text-white disabled:opacity-50"
+          >
+            {busy && <Loader2 size={12} className="animate-spin" />} Link
+          </button>
+        </div>
+      )}
+      {err && <p className="mt-1 text-bad">{err}</p>}
+    </div>
+  )
+}
+
+const LOAN_OPTIONS: { value: Plan['otherLoan']['repay']; label: string }[] = [
+  { value: 'none', label: "Won't be repaid (expected to be written off)" },
+  { value: 'atRetirement', label: 'Repay it when we retire' },
+  { value: 'atAccess', label: 'Repay it when pensions unlock' },
+]
+
+function OtherLoanBlock({ plan, edit, editAll, retireAge, accessAge }: { plan: Plan; edit: Edit; editAll: Edit; retireAge: number; accessAge: number }) {
+  const l = plan.otherLoan
+  return (
+    <div className="mt-4 border-t border-line pt-3">
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <span className="text-[13px] font-medium">Other loans</span>
+        <input
+          className="num-input w-40 !text-left text-xs"
+          value={l.label}
+          maxLength={30}
+          onChange={(e) => edit((d) => void (d.otherLoan.label = e.target.value))}
+          aria-label="Loan name"
+        />
+      </div>
+      <MoneyField
+        label="Amount owed"
+        help="An interest-free loan, e.g. from family, repaid in one go. It isn't increased for inflation."
+        value={l.amount}
+        onChange={(v) => editAll((x) => void (x.otherLoan.amount = v))}
+        sliderMax={300_000}
+        step={1000}
+      />
+      <SheetCellLink cellKey="otherLoan" placeholder="Net Worth!B13" onValue={(v) => editAll((x) => void (x.otherLoan.amount = Math.round(v)))} />
+      {l.amount > 0 && (
+        <div className="space-y-1.5">
+          {LOAN_OPTIONS.map((o) => (
+            <label
+              key={o.value}
+              className={`flex cursor-pointer items-center gap-2.5 rounded-lg border px-2.5 py-2 text-[13px] ${l.repay === o.value ? 'border-accent bg-accent-wash' : 'border-line hover:bg-surface-2'}`}
+            >
+              <input
+                type="radio"
+                name="loan-repay"
+                className="accent-[var(--accent)]"
+                checked={l.repay === o.value}
+                onChange={() => edit((d) => void (d.otherLoan.repay = o.value))}
+              />
+              <span>
+                {o.label}
+                {o.value === 'atRetirement' && <span className="text-xs text-muted"> · at {retireAge}</span>}
+                {o.value === 'atAccess' && <span className="text-xs text-muted"> · at {Math.max(retireAge, accessAge)}</span>}
+              </span>
+            </label>
+          ))}
+          <p className="text-xs text-muted">Tip: copy this scenario and set one copy to "written off" to see what it's worth.</p>
+        </div>
+      )}
+    </div>
   )
 }

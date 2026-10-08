@@ -24,6 +24,7 @@ interface Props {
 
 export function TopBar(p: Props) {
   const [menu, setMenu] = useState(false)
+  const [renaming, setRenaming] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -53,18 +54,41 @@ export function TopBar(p: Props) {
           <label className="sr-only" htmlFor="scenario">
             Scenario
           </label>
-          <select
-            id="scenario"
-            value={p.activeId}
-            onChange={(e) => p.onSelect(e.target.value)}
-            className="w-full max-w-64 min-w-24 truncate rounded-lg border border-line bg-surface px-2.5 py-1.5 text-[13px] font-medium"
-          >
-            {p.scenarios.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
+          {renaming ? (
+            <input
+              id="scenario"
+              autoFocus
+              defaultValue={active?.name}
+              maxLength={40}
+              aria-label="Scenario name"
+              className="num-input w-full max-w-64 min-w-24 !text-left text-[13px] font-medium"
+              onFocus={(e) => e.currentTarget.select()}
+              onBlur={(e) => {
+                const n = e.target.value.trim()
+                if (n) p.onRename(n)
+                setRenaming(false)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                if (e.key === 'Escape') setRenaming(false)
+              }}
+            />
+          ) : (
+            <select
+              id="scenario"
+              value={p.activeId}
+              onChange={(e) => p.onSelect(e.target.value)}
+              onDoubleClick={() => setRenaming(true)}
+              title="Double-click to rename"
+              className="w-full max-w-64 min-w-24 truncate rounded-lg border border-line bg-surface px-2.5 py-1.5 text-[13px] font-medium"
+            >
+              {p.scenarios.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          )}
           <IconBtn label="Save a copy as a new scenario" onClick={p.onDuplicate}>
             <Copy size={16} />
           </IconBtn>
@@ -110,9 +134,8 @@ export function TopBar(p: Props) {
               <MenuItem
                 icon={<Pencil size={14} />}
                 onClick={() => {
-                  const n = prompt('Scenario name', active?.name)
-                  if (n?.trim()) p.onRename(n.trim().slice(0, 40))
                   setMenu(false)
+                  setRenaming(true)
                 }}
               >
                 Rename scenario
