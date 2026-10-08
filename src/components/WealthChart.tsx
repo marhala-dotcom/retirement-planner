@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Area, ComposedChart, CartesianGrid, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import type { MCResult } from '../engine/montecarlo'
 import { WRAPPERS, type YearRow } from '../engine/types'
@@ -34,15 +34,24 @@ const MARKET_DESC: Record<MarketView, string> = {
   crash: ', if shares fall 35% the year you retire',
 }
 
-/** One reference line per age; labels at the same age are joined. */
-function groupMarks(marks: Milestone[]): Milestone[] {
-  const out: Milestone[] = []
+/** One reference line per age (labels at the same age are joined), each label placed on
+ *  the first of up to four rows where it won't run into its neighbour. */
+function layoutMarks(marks: Milestone[], first: number, last: number, widthPx: number) {
+  const grouped: Milestone[] = []
   for (const m of marks) {
-    const same = out.find((x) => x.x === m.x)
+    const same = grouped.find((x) => x.x === m.x)
     if (same) same.label = `${same.label} · ${m.label}`
-    else out.push({ ...m })
+    else grouped.push({ ...m })
   }
-  return out
+  const pxPerYear = Math.max(1, (widthPx - 80) / Math.max(1, last - first))
+  const rowEnd = [-Infinity, -Infinity, -Infinity, -Infinity]
+  return grouped.map((m) => {
+    const w = (m.label.length * 5.4 + 10) / pxPerYear
+    let row = rowEnd.findIndex((end) => end < m.x)
+    if (row < 0) row = rowEnd.indexOf(Math.min(...rowEnd))
+    rowEnd[row] = m.x + w
+    return { ...m, row }
+  })
 }
 
 const MARK_COLOR: Record<Milestone['kind'], string> = {
@@ -54,6 +63,15 @@ const MARK_COLOR: Record<Milestone['kind'], string> = {
 }
 
 export function WealthChart(p: Props) {
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const [width, setWidth] = useState(900)
+  useEffect(() => {
+    const el = wrapRef.current
+    if (!el) return
+    const ro = new ResizeObserver(([e]) => setWidth(e.contentRect.width))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
   const data = useMemo(
     () =>
       p.rows.map((r, t) => {
@@ -159,9 +177,9 @@ export function WealthChart(p: Props) {
         )}
       </div>
 
-      <div className={`h-[352px] transition-opacity ${p.busy && p.mode === 'range' ? 'opacity-60' : ''}`}>
+      <div ref={wrapRef} className={`h-[366px] transition-opacity ${p.busy && p.mode === 'range' ? 'opacity-60' : ''}`}>
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={data} margin={{ top: 34, right: 12, bottom: 0, left: 4 }} onClick={handleClick} style={{ cursor: 'pointer' }}>
+          <ComposedChart data={data} margin={{ top: 48, right: 12, bottom: 0, left: 4 }} onClick={handleClick} style={{ cursor: 'pointer' }}>
             <CartesianGrid vertical={false} stroke="var(--grid)" />
             <XAxis
               dataKey="age"
@@ -204,7 +222,7 @@ export function WealthChart(p: Props) {
                   <Area key="b50" type="monotone" dataKey="band50" stroke="none" fill="var(--band-inner)" fillOpacity={1} isAnimationActive={false} />,
                   <Line key="p50" type="monotone" dataKey="p50" stroke="var(--s-pension)" strokeWidth={2} dot={false} isAnimationActive={false} />,
                 ]}
-            {groupMarks(p.marks).map((m, i) => (
+            {layoutMarks(p.marks, first, last, width).map((m, i) => (
               <ReferenceLine
                 key={m.kind + m.x + i}
                 x={m.x}
@@ -217,7 +235,7 @@ export function WealthChart(p: Props) {
                   fontSize: 10,
                   fill: 'var(--ink-2)',
                   offset: 4,
-                  dy: -30 + (i % 3) * 11, // three label rows so neighbours don't collide
+                  dy: -44 + m.row * 11,
                 }}
               />
             ))}
