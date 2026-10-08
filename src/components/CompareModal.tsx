@@ -13,7 +13,8 @@ export function CompareModal({ scenarios, activeId, onClose }: { scenarios: Scen
     const others = scenarios.filter((s) => s.id !== activeId).map((s) => s.id)
     return [activeId, ...others].slice(0, 4)
   })
-  const chosen = scenarios.filter((s) => picked.includes(s.id))
+  // Keep scenarios in picked order so chips, table rows and lines share one colour per scenario.
+  const chosen = picked.map((id) => scenarios.find((s) => s.id === id)).filter((s): s is Scenario => Boolean(s))
   const steady = useMemo(() => chosen.map((s) => runDeterministic(s.plan)), [chosen])
   const [mc, setMc] = useState<{ success: number; maxSteady: number }[] | null>(null)
 
