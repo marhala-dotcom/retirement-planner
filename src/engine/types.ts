@@ -115,6 +115,18 @@ export interface IncomeBreakdown {
   tax: number // household income tax + CGT + NI
 }
 
+export interface PersonYear {
+  pension: number // gross pension withdrawn
+  pensionTaxFree: number // part of that which was tax-free (25%)
+  lumpSum: number // tax-free lump sum taken up front this year (moved to ISA/cash)
+  statePension: number
+  other: number // DB pension + part-time work
+  savingsIncome: number // taxable interest + dividends
+  taxableIncome: number // everything that counts for income tax
+  allowance: number // personal allowance after any taper
+  incomeTax: number // income tax + NI + CGT
+}
+
 /** One simulated year (nominal £ unless named *Real). */
 export interface YearRow {
   year: number // tax year starting (2026 = 2026/27)
@@ -129,6 +141,8 @@ export interface YearRow {
   shortfall: number
   income: IncomeBreakdown
   taxByPerson: [number, number]
+  /** Per-person detail behind the tax figure (actual £ for the year). */
+  detail: [PersonYear, PersonYear]
   higherRate: [boolean, boolean] // taxable income above the basic-rate band
   contributions: number
   mortgage: number // mortgage and loan repayments taken from savings this year

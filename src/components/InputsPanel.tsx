@@ -1,5 +1,5 @@
-import { CalendarHeart, Plus, PiggyBank, Route, Settings2, Trash2, TrendingUp, User, Users, Wallet } from 'lucide-react'
-import { PRESETS } from '../engine/defaults'
+import { CalendarHeart, Plus, PiggyBank, RotateCcw, Route, Settings2, Trash2, TrendingUp, User, Users, Wallet } from 'lucide-react'
+import { PRESETS, defaultPlan } from '../engine/defaults'
 import { PLSA, STATE_PENSION, birthYearFromAge, pensionAccessAge, statePensionAge } from '../engine/rules'
 import { WRAPPERS, type LifeEvent, type Plan, type ReturnPreset, type WrapperKey } from '../engine/types'
 import { WRAPPER_META } from '../lib/colors'
@@ -433,7 +433,7 @@ function SpendingSection({ plan, edit }: { plan: Plan; edit: Edit }) {
 function StrategySection({ plan, edit }: { plan: Plan; edit: Edit }) {
   const st = plan.strategy
   return (
-    <Section title="Drawdown strategy" icon={<Route size={16} />} defaultOpen={false}>
+    <Section id="strategy" title="Drawdown strategy" icon={<Route size={16} />} defaultOpen={false}>
       <Segmented
         label="Spending rule"
         help="Fixed: spend the same inflation-linked amount every year, whatever markets do. Flexible: Guyton–Klinger-style guardrails. Each year we check what your remaining money (plus future pensions) can sustain to your plan age. If you're spending more than 10% above that, spending is trimmed 10%, never below your essentials. When markets recover it's restored, up to your full target."
@@ -499,6 +499,7 @@ function StrategySection({ plan, edit }: { plan: Plan; edit: Edit }) {
 
 function AssumptionsSection({ plan, edit }: { plan: Plan; edit: Edit }) {
   const a = plan.assumptions
+  const defaults = defaultPlan().assumptions
   const setPreset = (p: ReturnPreset) =>
     edit((d) => {
       d.assumptions.preset = p
@@ -509,11 +510,16 @@ function AssumptionsSection({ plan, edit }: { plan: Plan; edit: Edit }) {
       fn(d.assumptions)
       d.assumptions.preset = 'custom'
     })
+  // Typical yearly growth of the invested pots after fees (shares/bonds mix), and after inflation.
+  const growth = (e: number) => e * a.equityReturn + (1 - e) * a.bondReturn - a.fees
+  const real = (g: number) => (1 + g) / (1 + a.inflation) - 1
+  const isDefault = (Object.keys(defaults) as (keyof typeof defaults)[]).every((k) => a[k] === defaults[k])
+  const pc = (x: number) => `${(x * 100).toFixed(1)}%`
   return (
-    <Section title="Investments & assumptions" icon={<TrendingUp size={16} />} defaultOpen={false}>
+    <Section id="assumptions" title="Investments & assumptions" icon={<TrendingUp size={16} />} defaultOpen={false} aside={a.preset === 'custom' ? 'Custom' : a.preset[0].toUpperCase() + a.preset.slice(1)}>
       <Segmented
         label="Market outlook"
-        help="Long-run return assumptions for a GBP investor, based on 2025–26 capital market assumptions from Vanguard, J.P. Morgan, BlackRock and others. Central is a middle-of-the-road view."
+        help="Starting points for the growth rates below, based on 2025–26 long-run forecasts from J.P. Morgan, Vanguard, Schroders and others. Central is a middle-of-the-road view. Change any rate to make it Custom."
         value={a.preset}
         onChange={setPreset}
         size="sm"
@@ -525,27 +531,42 @@ function AssumptionsSection({ plan, edit }: { plan: Plan; edit: Edit }) {
         ]}
       />
       <PercentField
-        label="Shares (equities) while saving"
-        help="The rest is in bonds. Applies to pensions and ISAs. Cash is held separately."
-        value={a.equityPre}
-        onChange={(v) => edit((d) => void (d.assumptions.equityPre = v))}
-        min={0}
-        max={1}
-        sliderStep={0.05}
-        decimals={0}
+        label="Shares: growth a year"
+        help="Long-run average yearly growth of global shares, including dividends, before fees and before inflation. Simulated years vary around this."
+        value={a.equityReturn}
+        onChange={(v) => custom((x) => void (x.equityReturn = v))}
+        min={-0.05}
+        max={0.15}
+        sliderMin={0.02}
+        sliderMax={0.1}
+        sliderStep={0.0025}
+        decimals={1}
       />
       <PercentField
-        label="Shares (equities) in retirement"
-        value={a.equityPost}
-        onChange={(v) => edit((d) => void (d.assumptions.equityPost = v))}
+        label="Bonds: growth a year"
+        help="Government and high-quality bonds, before fees and inflation."
+        value={a.bondReturn}
+        onChange={(v) => custom((x) => void (x.bondReturn = v))}
+        min={-0.05}
+        max={0.12}
+        sliderMin={0.01}
+        sliderMax={0.07}
+        sliderStep={0.0025}
+        decimals={1}
+      />
+      <PercentField
+        label="Cash: interest a year"
+        value={a.cashRate}
+        onChange={(v) => custom((x) => void (x.cashRate = v))}
         min={0}
-        max={1}
-        sliderStep={0.05}
-        decimals={0}
+        max={0.1}
+        sliderMax={0.06}
+        sliderStep={0.0025}
+        decimals={1}
       />
       <PercentField
         label="Inflation (CPI)"
-        help="Bank of England target is 2%. 2.5% is a common prudent long-run planning assumption."
+        help="Bank of England target is 2%. 2.5% is a common prudent long-run planning assumption. Everything is shown in today's money using this rate."
         value={a.inflation}
         onChange={(v) => edit((d) => void (d.assumptions.inflation = v))}
         min={0}
@@ -555,7 +576,7 @@ function AssumptionsSection({ plan, edit }: { plan: Plan; edit: Edit }) {
         decimals={2}
       />
       <PercentField
-        label="Annual fees (platform + funds)"
+        label="Fees a year (platform + funds)"
         value={a.fees}
         onChange={(v) => edit((d) => void (d.assumptions.fees = v))}
         min={0}
@@ -564,20 +585,59 @@ function AssumptionsSection({ plan, edit }: { plan: Plan; edit: Edit }) {
         sliderStep={0.0005}
         decimals={2}
       />
+      <PercentField
+        label="Shares in the mix while saving"
+        help="The rest is in bonds. Applies to pensions and ISAs. Cash is held separately."
+        value={a.equityPre}
+        onChange={(v) => edit((d) => void (d.assumptions.equityPre = v))}
+        min={0}
+        max={1}
+        sliderStep={0.05}
+        decimals={0}
+      />
+      <PercentField
+        label="Shares in the mix in retirement"
+        value={a.equityPost}
+        onChange={(v) => edit((d) => void (d.assumptions.equityPost = v))}
+        min={0}
+        max={1}
+        sliderStep={0.05}
+        decimals={0}
+      />
+      <div className="my-2 rounded-xl bg-surface-2 p-3 text-[13px] leading-snug">
+        <div className="mb-1 font-medium">What this means for your investments</div>
+        <div className="flex justify-between text-ink-2">
+          <span>While saving ({Math.round(a.equityPre * 100)}/{Math.round((1 - a.equityPre) * 100)})</span>
+          <span className="tnum">
+            <strong className="text-ink">{pc(growth(a.equityPre))}</strong> a year · {pc(real(growth(a.equityPre)))} after inflation
+          </span>
+        </div>
+        <div className="flex justify-between text-ink-2">
+          <span>In retirement ({Math.round(a.equityPost * 100)}/{Math.round((1 - a.equityPost) * 100)})</span>
+          <span className="tnum">
+            <strong className="text-ink">{pc(growth(a.equityPost))}</strong> a year · {pc(real(growth(a.equityPost)))} after inflation
+          </span>
+        </div>
+        <p className="mt-1 text-xs text-muted">Typical year after fees. Real years go up and down around this.</p>
+      </div>
+      <button
+        onClick={() => edit((d) => void (d.assumptions = defaultPlan().assumptions))}
+        disabled={isDefault}
+        className="mb-1 inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-medium hover:bg-surface-2 disabled:opacity-40"
+      >
+        <RotateCcw size={12} /> {isDefault ? 'Using the default assumptions' : 'Reset assumptions to defaults'}
+      </button>
       <details className="mt-1">
         <summary className="flex cursor-pointer items-center gap-1.5 py-1.5 text-[13px] font-medium text-accent-ink">
           <Settings2 size={14} /> Advanced
         </summary>
         <div className="grid grid-cols-2 gap-x-4">
-          <PercentField label="Equity return" value={a.equityReturn} onChange={(v) => custom((x) => void (x.equityReturn = v))} min={0} max={0.15} slider={false} />
-          <PercentField label="Equity volatility" value={a.equityVol} onChange={(v) => custom((x) => void (x.equityVol = v))} min={0} max={0.4} slider={false} />
-          <PercentField label="Bond return" value={a.bondReturn} onChange={(v) => custom((x) => void (x.bondReturn = v))} min={0} max={0.12} slider={false} />
-          <PercentField label="Bond volatility" value={a.bondVol} onChange={(v) => custom((x) => void (x.bondVol = v))} min={0} max={0.3} slider={false} />
-          <PercentField label="Cash interest" value={a.cashRate} onChange={(v) => custom((x) => void (x.cashRate = v))} min={0} max={0.1} slider={false} />
+          <PercentField label="Shares volatility" value={a.equityVol} onChange={(v) => custom((x) => void (x.equityVol = v))} min={0} max={0.4} slider={false} />
+          <PercentField label="Bonds volatility" value={a.bondVol} onChange={(v) => custom((x) => void (x.bondVol = v))} min={0} max={0.3} slider={false} />
           <NumberField label="Correlation" value={a.correlation} onChange={(v) => custom((x) => void (x.correlation = v))} min={-1} max={1} step={0.05} decimals={2} slider={false} width="w-16" />
         </div>
         <p className="mb-2 text-[11px] leading-relaxed text-muted">
-          Returns are nominal, before fees, as long-run averages. Simulated years vary around these using a lognormal model.
+          Volatility is how much a typical year swings around the average (a lognormal model). Correlation is how much shares and bonds move together.
         </p>
         <PercentField
           label="State Pension rises above inflation by"

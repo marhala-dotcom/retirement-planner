@@ -15,7 +15,7 @@
 import { CGT, LISA, PENSION, BASE_YEAR } from './rules'
 import { higherRateStart, personTax, personalAllowance, type TaxContext } from './tax'
 import type { Prepared } from './prepare'
-import type { IncomeBreakdown, Pots, SimResult, WrapperKey, YearRow } from './types'
+import type { IncomeBreakdown, PersonYear, Pots, SimResult, WrapperKey, YearRow } from './types'
 
 type Source = 'cash' | 'gia' | 'isa' | 'lisa' | 'pensionBasic' | 'pensionAny'
 
@@ -39,6 +39,8 @@ interface PState {
   wd: Pots
   isaUsed: number
   overSpa: boolean
+  tf: number // tax-free pension money taken this year (25% parts)
+  lump: number // tax-free lump sum crystallised this year
 }
 
 const zeroPots = (): Pots => ({ pension: 0, isa: 0, gia: 0, cash: 0, lisa: 0 })
@@ -87,6 +89,8 @@ export function simulate(P: Prepared, eqR: ArrayLike<number>, bdR: ArrayLike<num
       wd: zeroPots(),
       isaUsed: 0,
       overSpa: false,
+      tf: 0,
+      lump: 0,
     })
   }
 
@@ -120,6 +124,7 @@ export function simulate(P: Prepared, eqR: ArrayLike<number>, bdR: ArrayLike<num
     if (g <= 0) return
     const taxable = pensionTaxable(s, g)
     s.lsaLeft -= g - taxable
+    s.tf += g - taxable
     s.ns += taxable
     s.bal.pension -= g
     s.wd.pension += g
@@ -233,6 +238,7 @@ export function simulate(P: Prepared, eqR: ArrayLike<number>, bdR: ArrayLike<num
     for (let p = 0; p < n; p++) {
       const s = st[p]
       s.ns = s.earn = s.sav = s.div = s.gains = 0
+      s.tf = s.lump = 0
       s.wd = zeroPots()
       s.isaUsed = 0
       s.overSpa = age(p, t) >= P.spa[p]
@@ -275,6 +281,7 @@ export function simulate(P: Prepared, eqR: ArrayLike<number>, bdR: ArrayLike<num
         s.bal.pension -= tfc
         s.lsaLeft -= tfc
         s.crystallised = true
+        s.lump += tfc
         deposit(s, t, tfc)
       }
     }
@@ -461,6 +468,8 @@ export function simulate(P: Prepared, eqR: ArrayLike<number>, bdR: ArrayLike<num
         tax,
       }
       const taxByPerson: [number, number] = [0, 0]
+      const blank = (): PersonYear => ({ pension: 0, pensionTaxFree: 0, lumpSum: 0, statePension: 0, other: 0, savingsIncome: 0, taxableIncome: 0, allowance: 0, incomeTax: 0 })
+      const detail: [PersonYear, PersonYear] = [blank(), blank()]
       for (let p = 0; p < n; p++) {
         const w = st[p].wd
         income.pension += w.pension
@@ -469,6 +478,18 @@ export function simulate(P: Prepared, eqR: ArrayLike<number>, bdR: ArrayLike<num
         income.cash += w.cash
         income.lisa += w.lisa
         taxByPerson[p] = taxOf(st[p])
+        const s = st[p]
+        detail[p] = {
+          pension: s.wd.pension,
+          pensionTaxFree: s.tf,
+          lumpSum: s.lump,
+          statePension: P.sp[p][t],
+          other: P.db[p][t] + P.work[p][t],
+          savingsIncome: s.sav + s.div,
+          taxableIncome: totalIncome(s),
+          allowance: personalAllowance(totalIncome(s), P.idx[t]),
+          incomeTax: taxByPerson[p],
+        }
       }
       const balances = {
         pension: startBal[0].pension + startBal[1].pension,
@@ -490,6 +511,7 @@ export function simulate(P: Prepared, eqR: ArrayLike<number>, bdR: ArrayLike<num
         shortfall,
         income,
         taxByPerson,
+        detail,
         higherRate: [totalIncome(st[0]) > hrs + 1 && retired(0, t), n > 1 && totalIncome(st[1]) > hrs + 1 && retired(1, t)],
         contributions,
         mortgage: P.mortgageOut[t],

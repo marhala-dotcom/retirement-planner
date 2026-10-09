@@ -1,5 +1,5 @@
 import { ChevronDown, Info } from 'lucide-react'
-import { useId, useState, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 
 export function InfoTip({ text }: { text: string }) {
   const [open, setOpen] = useState(false)
@@ -255,16 +255,30 @@ export function Section({
   children,
   defaultOpen = true,
   aside,
+  id,
 }: {
   title: string
   icon?: ReactNode
   children: ReactNode
   defaultOpen?: boolean
   aside?: ReactNode
+  /** Lets other parts of the app open and scroll to this section (see openSection). */
+  id?: string
 }) {
   const [open, setOpen] = useState(defaultOpen)
+  const ref = useRef<HTMLElement>(null)
+  useEffect(() => {
+    if (!id) return
+    const onOpen = (e: Event) => {
+      if ((e as CustomEvent<string>).detail !== id) return
+      setOpen(true)
+      setTimeout(() => ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
+    }
+    window.addEventListener('horizon:open-section', onOpen)
+    return () => window.removeEventListener('horizon:open-section', onOpen)
+  }, [id])
   return (
-    <section className="border-b border-line">
+    <section ref={ref} id={id ? `section-${id}` : undefined} className="scroll-mt-4 border-b border-line">
       <button
         className="flex w-full items-center gap-2.5 px-5 py-3.5 text-left hover:bg-surface-2"
         onClick={() => setOpen((o) => !o)}

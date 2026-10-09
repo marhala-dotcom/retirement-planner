@@ -1,6 +1,7 @@
 import { Lock, SlidersHorizontal, X, LineChart as LineIcon } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AgeScrubber } from './components/AgeScrubber'
+import { AssumptionsBar } from './components/AssumptionsBar'
 import { CompareModal } from './components/CompareModal'
 import { IncomeChart } from './components/IncomeChart'
 import { InputsPanel } from './components/InputsPanel'
@@ -177,6 +178,8 @@ export default function App() {
 
           <KpiStrip P={P} potAtRet={steady.potAtRetirementReal} depletedAge={depletedAge} mc={engine.mc} solve={engine.solve} busy={engine.busy} />
 
+          <AssumptionsBar plan={plan} onEdit={() => setTab('plan')} />
+
           <WealthChart
             rows={marketRows}
             mc={engine.mc}
@@ -205,6 +208,8 @@ export default function App() {
             market={market}
             spa={P.spa}
             accessAge={P.accessAge}
+            target={plan.spending.monthly}
+            onEdit={() => setTab('plan')}
           />
 
           <Timeline P={P} onPick={setScrubAge} />

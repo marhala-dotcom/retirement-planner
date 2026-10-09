@@ -229,3 +229,23 @@ describe('extra pots switch', () => {
     expect(Math.max(...on.rows!.map((r) => r.balances.gia))).toBeGreaterThan(0)
   })
 })
+
+describe('tax breakdown per person', () => {
+  it('pension withdrawals are 25% tax-free and the household nets exactly the target', () => {
+    const plan = defaultPlan()
+    const d = runDeterministic(plan)
+    const rows = d.rows!.filter((r) => r.phase === 'retired' && r.income.pension > 0 && r.shortfall === 0)
+    expect(rows.length).toBeGreaterThan(3)
+    for (const r of rows) {
+      for (const p of [0, 1]) {
+        const x = r.detail[p]
+        if (x.pension > 0) expect(x.pensionTaxFree).toBeCloseTo(x.pension * 0.25, 0)
+        expect(x.taxableIncome).toBeCloseTo(x.pension - x.pensionTaxFree + x.statePension + x.other + x.savingsIncome, 0)
+        expect(x.incomeTax).toBeCloseTo(r.taxByPerson[p], 6)
+      }
+      const i = r.income
+      const gross = i.statePension + i.other + i.pension + i.isa + i.gia + i.cash + i.lisa
+      expect(gross - i.tax - r.surplusSaved).toBeCloseTo(r.spent, -1)
+    }
+  })
+})

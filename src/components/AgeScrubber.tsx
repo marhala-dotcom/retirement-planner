@@ -1,10 +1,11 @@
 import { AlertTriangle, CheckCircle2, Lock, Pause, Play, Unlock } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { WRAPPERS, type YearRow } from '../engine/types'
-import { INCOME_META, INCOME_ORDER, WRAPPER_META } from '../lib/colors'
+import { WRAPPER_META } from '../lib/colors'
 import { compact, money } from '../lib/format'
 import type { Milestone } from '../lib/milestones'
 import type { MarketView } from './WealthChart'
+import { YearMoney } from './YearMoney'
 
 interface Props {
   rows: YearRow[]
@@ -17,10 +18,12 @@ interface Props {
   market: MarketView
   spa: [number, number]
   accessAge: [number, number]
+  target: number
+  onEdit: () => void
 }
 
 /** The "sliding gauge": drag through the years and see what's left and where income comes from. */
-export function AgeScrubber({ rows, age, setAge, real, marks, names, couple, market, spa, accessAge }: Props) {
+export function AgeScrubber({ rows, age, setAge, real, marks, names, couple, market, spa, accessAge, target, onEdit }: Props) {
   const minAge = rows[0].ages[0]
   const maxAge = rows[rows.length - 1].ages[0]
   const row = rows.find((r) => r.ages[0] === age) ?? rows[0]
@@ -46,9 +49,6 @@ export function AgeScrubber({ rows, age, setAge, real, marks, names, couple, mar
 
   const pctPos = ((age - minAge) / Math.max(1, maxAge - minAge)) * 100
   const ticks = sliderTicks(marks, minAge, maxAge)
-  const inc = row.income
-  const incomeItems = INCOME_ORDER.map((key) => ({ key, value: inc[key] })).filter((x) => x.value > 1)
-  const grossIn = incomeItems.reduce((s, x) => s + x.value, 0)
   const retired = row.phase === 'retired'
 
   return (
@@ -117,70 +117,11 @@ export function AgeScrubber({ rows, age, setAge, real, marks, names, couple, mar
 
         {/* Right: this year's money */}
         <div className="rounded-xl bg-surface-2 p-4">
-          <div className="mb-2 flex items-baseline justify-between">
-            <span className="text-[13px] font-semibold">{retired ? 'Income this year' : 'Still saving'}</span>
-            {retired && <span className="text-xs text-muted">per year · per month</span>}
-          </div>
           {retired ? (
-            <>
-              {incomeItems.length === 0 && <p className="text-[13px] text-muted">No income this year.</p>}
-              {incomeItems.map((x) => (
-                <div key={x.key} className="flex items-center justify-between gap-2 py-1 text-[13px]">
-                  <span className="flex items-center gap-2 text-ink-2">
-                    <span className="h-2.5 w-2.5 rounded-sm" style={{ background: INCOME_META[x.key].color }} />
-                    {INCOME_META[x.key].label}
-                    {grossIn > 0 && <span className="text-xs text-muted">{Math.round((x.value / grossIn) * 100)}%</span>}
-                  </span>
-                  <span className="tnum">
-                    {money(v(x.value))} <span className="text-muted">· {money(v(x.value) / 12)}</span>
-                  </span>
-                </div>
-              ))}
-              {inc.tax >= 1 && (
-                <div className="flex items-center justify-between gap-2 py-1 text-[13px]">
-                  <span className="flex items-center gap-2 text-ink-2">
-                    <span className="h-2.5 w-2.5 rounded-sm" style={{ background: 'var(--s-tax)' }} />
-                    Tax
-                  </span>
-                  <span className="tnum">
-                    −{money(v(inc.tax))} <span className="text-muted">· {money(v(inc.tax) / 12)}</span>
-                  </span>
-                </div>
-              )}
-              {row.surplusSaved > 1 && (
-                <div className="flex items-center justify-between gap-2 py-1 text-[13px] text-ink-2">
-                  <span>Reinvested (not needed)</span>
-                  <span className="tnum">−{money(v(row.surplusSaved))}</span>
-                </div>
-              )}
-              <div className="mt-2 border-t border-line pt-2">
-                <div className="flex items-center justify-between text-[13px] font-semibold">
-                  <span>Spending</span>
-                  <span className="tnum">
-                    {money(v(row.spent))} <span className="font-normal text-muted">· {money(v(row.spent) / 12)}/mo</span>
-                  </span>
-                </div>
-                {row.mortgage > 1 && (
-                  <div className="mt-0.5 flex items-center justify-between text-xs text-ink-2">
-                    <span>of which mortgage & loans</span>
-                    <span className="tnum">{money(v(row.mortgage))}</span>
-                  </div>
-                )}
-                {row.shortfall > 1 && (
-                  <div className="mt-1 flex items-center gap-1.5 text-[13px] font-medium text-bad">
-                    <AlertTriangle size={14} /> Short by {money(v(row.shortfall))} ({money(v(row.shortfall) / 12)}/mo)
-                  </div>
-                )}
-                {row.spendingFactor < 0.999 && (
-                  <div className="mt-1 text-xs text-warn">Guardrails: spending trimmed to {Math.round(row.spendingFactor * 100)}% of target</div>
-                )}
-                {row.spendingFactor > 1.001 && (
-                  <div className="mt-1 text-xs text-good">Guardrails: spending raised to {Math.round(row.spendingFactor * 100)}% of target</div>
-                )}
-              </div>
-            </>
+            <YearMoney row={row} real={real} names={names} couple={couple} target={target} onEdit={onEdit} />
           ) : (
             <div className="space-y-1 text-[13px] text-ink-2">
+              <div className="mb-1 text-[13px] font-semibold text-ink">Still saving</div>
               <p>
                 {row.contributions > 0 ? (
                   <>
